@@ -46,7 +46,7 @@ class Dataset(object):
                 negativeList.append(negatives)
                 line = f.readline()
         return negativeList
-    
+
     def load_rating_file_as_matrix(self, filename):
         '''
         Read .rating file and Return dok matrix.
@@ -71,5 +71,5 @@ class Dataset(object):
                 user, item, rating = int(arr[0]), int(arr[1]), float(arr[2])
                 if (rating > 0):
                     mat[user, item] = 1.0
-                line = f.readline()    
+                line = f.readline()
         return mat

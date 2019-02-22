@@ -65,7 +65,7 @@ def eval_one_rating(idx):
         item = items[i]
         map_item_score[item] = predictions[i]
     items.pop()
-    
+
     # Evaluate top rank list
     ranklist = heapq.nlargest(_K, map_item_score, key=map_item_score.get)
     hr = getHitRatio(ranklist, gtItem)
@@ -78,6 +78,7 @@ def getHitRatio(ranklist, gtItem):
             return 1
     return 0
 
+# Non discounted cumulative gain.
 def getNDCG(ranklist, gtItem):
     for i in range(len(ranklist)):
         item = ranklist[i]

@@ -8,10 +8,6 @@ He Xiangnan et al. Neural Collaborative Filtering. In WWW 2017.
 
 import numpy as np
 
-import theano
-import theano.tensor as T
-import keras
-from keras import backend as K
 from keras import initializations
 from keras.regularizers import l2, activity_l2
 from keras.models import Sequential, Graph, Model
@@ -25,8 +21,11 @@ from time import time
 import sys
 import argparse
 import multiprocessing as mp
+import matplotlib.pyplot as plt
 
 #################### Arguments ####################
+from util import perfTSNE, plotPoints, getMovieIds, getIdsEmbeddings
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run MLP.")
     parser.add_argument('--path', nargs='?', default='Data/',
@@ -66,26 +65,26 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = layers[0]/2, name = 'user_embedding',
                                   init = init_normal, W_regularizer = l2(reg_layers[0]), input_length=1)
     MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = layers[0]/2, name = 'item_embedding',
-                                  init = init_normal, W_regularizer = l2(reg_layers[0]), input_length=1)   
-    
+                                  init = init_normal, W_regularizer = l2(reg_layers[0]), input_length=1)
+
     # Crucial to flatten an embedding vector!
     user_latent = Flatten()(MLP_Embedding_User(user_input))
     item_latent = Flatten()(MLP_Embedding_Item(item_input))
-    
+
     # The 0-th layer is the concatenation of embedding layers
     vector = merge([user_latent, item_latent], mode = 'concat')
-    
+
     # MLP layers
     for idx in range(1, num_layer):
         layer = Dense(layers[idx], W_regularizer= l2(reg_layers[idx]), activation='relu', name = 'layer%d' %idx)
         vector = layer(vector)
-        
+
     # Final prediction layer
     prediction = Dense(1, activation='sigmoid', init='lecun_uniform', name = 'prediction')(vector)
-    
-    model = Model(input=[user_input, item_input], 
+
+    model = Model(input=[user_input, item_input],
                   output=prediction)
-    
+
     return model
 
 def get_train_instances(train, num_negatives):
@@ -99,12 +98,38 @@ def get_train_instances(train, num_negatives):
         # negative instances
         for t in range(num_negatives):
             j = np.random.randint(num_items)
-            while train.has_key((u, j)):
+            while (u, j) in train:
                 j = np.random.randint(num_items)
             user_input.append(u)
             item_input.append(j)
             labels.append(0)
     return user_input, item_input, labels
+
+def user_item_embeddings():
+  item_emb_ln = 'item_embedding'
+  user_emb_ln = 'user_embedding'
+  all_users = np.array(range(0, 6040))
+  all_items = np.array(range(0, 3706))
+  all_items = np.array(list(set(all_items)))
+  item_emb_model = Model(
+    input=[model.layers[0].input],
+    output=model.get_layer(item_emb_ln).output)
+  user_emb_model = Model(
+    input=[model.layers[1].input],
+    output=model.get_layer(
+      user_emb_ln).output)
+  item_embs = item_emb_model.predict([all_items])
+  item_embs = np.squeeze(item_embs)
+
+  import pickle
+  with open('Embeddings/MLP_item_embs.pkl', 'wb') as file:
+    pickle.dump(item_embs, file)
+
+  with open('Embeddings/MLP_user_embs.pkl', 'wb') as file2:
+    user_embs = user_emb_model.predict([all_users])
+    user_embs = np.squeeze(user_embs)
+    pickle.dump(user_embs, file2)
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -118,47 +143,69 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     epochs = args.epochs
     verbose = args.verbose
-    
+    load_weights = True
+
     topK = 10
     evaluation_threads = 1 #mp.cpu_count()
     print("MLP arguments: %s " %(args))
     model_out_file = 'Pretrain/%s_MLP_%s_%d.h5' %(args.dataset, args.layers, time())
-    
+
+    if load_weights:
+        num_users, num_items = 6040, 3706
+        # Build model
+        model = get_model(num_users, num_items, layers, reg_layers)
+        if learner.lower() == "adagrad":
+            model.compile(optimizer=Adagrad(lr=learning_rate),
+                          loss='binary_crossentropy')
+        elif learner.lower() == "rmsprop":
+            model.compile(optimizer=RMSprop(lr=learning_rate),
+                          loss='binary_crossentropy')
+        elif learner.lower() == "adam":
+            model.compile(optimizer=Adam(lr=learning_rate),
+                          loss='binary_crossentropy')
+        else:
+            model.compile(optimizer=SGD(lr=learning_rate),
+                          loss='binary_crossentropy')
+        # print(model.summary())
+        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1549627845.h5")
+        user_item_embeddings()
+        exit(0)
+
     # Loading data
     t1 = time()
     dataset = Dataset(args.path + args.dataset)
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
     num_users, num_items = train.shape
-    print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
+    print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d"
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
-    
+
     # Build model
     model = get_model(num_users, num_items, layers, reg_layers)
-    if learner.lower() == "adagrad": 
+    if learner.lower() == "adagrad":
         model.compile(optimizer=Adagrad(lr=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "rmsprop":
         model.compile(optimizer=RMSprop(lr=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "adam":
         model.compile(optimizer=Adam(lr=learning_rate), loss='binary_crossentropy')
     else:
-        model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')    
-    
+        model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')
+
     # Check Init performance
     t1 = time()
     (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
     print('Init: HR = %.4f, NDCG = %.4f [%.1f]' %(hr, ndcg, time()-t1))
-    
+
     # Train model
     best_hr, best_ndcg, best_iter = hr, ndcg, -1
     for epoch in range(epochs):
         t1 = time()
         # Generate training instances
         user_input, item_input, labels = get_train_instances(train, num_negatives)
-    
-        # Training        
+
+        # Training
         hist = model.fit([np.array(user_input), np.array(item_input)], #input
-                         np.array(labels), # labels 
+                         np.array(labels), # labels
                          batch_size=batch_size, nb_epoch=1, verbose=0, shuffle=True)
         t2 = time()
 
@@ -166,7 +213,7 @@ if __name__ == '__main__':
         if epoch %verbose == 0:
             (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
             hr, ndcg, loss = np.array(hits).mean(), np.array(ndcgs).mean(), hist.history['loss'][0]
-            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]' 
+            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]'
                   % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))
             if hr > best_hr:
                 best_hr, best_ndcg, best_iter = hr, ndcg, epoch
