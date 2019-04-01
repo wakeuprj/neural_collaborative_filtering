@@ -16,12 +16,13 @@ class Dataset(object):
         '''
         Constructor
         '''
-        self.trainMatrix = self.load_rating_file_as_matrix(path + ".train.rating")
+        # self.trainMatrix = self.load_rating_file_as_matrix(path + ".train.rating")
         self.testRatings = self.load_rating_file_as_list(path + ".test.rating")
         self.testNegatives = self.load_negative_file(path + ".test.negative")
         assert len(self.testRatings) == len(self.testNegatives)
         
-        self.num_users, self.num_items = self.trainMatrix.shape
+        # self.num_users, self.num_items = self.trainMatrix.shape
+        self.num_users, self.num_items = 6040, 3706
         
     def load_rating_file_as_list(self, filename):
         ratingList = []
@@ -29,6 +30,8 @@ class Dataset(object):
             line = f.readline()
             while line != None and line != "":
                 arr = line.split("\t")
+                # if int(arr[2]) <= 2:
+                #     continue
                 user, item = int(arr[0]), int(arr[1])
                 ratingList.append([user, item])
                 line = f.readline()

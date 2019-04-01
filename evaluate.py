@@ -44,10 +44,19 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
         ndcgs = [r[1] for r in res]
         return (hits, ndcgs)
     # Single thread
+    hits_map = {(round(k,1)):[] for k in np.arange(0,1,0.1)}
     for idx in range(len(_testRatings)):
-        (hr,ndcg) = eval_one_rating(idx)
+        (hr, ndcg, score) = eval_one_rating(idx)
+        hits_map[score // 0.1 / 10].append(hr)
         hits.append(hr)
-        ndcgs.append(ndcg)      
+        ndcgs.append(ndcg)
+
+    import matplotlib.pyplot as plt
+    hr_vs_conf_map = {k:np.count_nonzero(v)/len(v) for k,v in hits_map.items()}
+    plt.plot(hr_vs_conf_map.items())
+    # plt.hist(scores, bins=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    plt.show()
+    exit(0)
     return (hits, ndcgs)
 
 def eval_one_rating(idx):
@@ -59,8 +68,15 @@ def eval_one_rating(idx):
     # Get prediction scores
     map_item_score = {}
     users = np.full(len(items), u, dtype = 'int32')
-    predictions = _model.predict([users, np.array(items)], 
+    predictions = _model.predict([users, np.array(items)],
                                  batch_size=100, verbose=0)
+    # _model.evaluate(x=[np.array([1]), np.array([25])], y=np.array([0]),
+    #                 verbose=1)
+
+    # output_func = K.function([_model.layers[0].input, _model.layers[1].input],[_model.layers[6].output, _model.layers[7].output])
+    # Note here first argument is the item id and the 2nd is the user id.
+    # output_func(inputs=[np.reshape([2791],(1,1)), np.reshape([0],(1,1))])
+
     for i in range(len(items)):
         item = items[i]
         map_item_score[item] = predictions[i]
@@ -70,7 +86,7 @@ def eval_one_rating(idx):
     ranklist = heapq.nlargest(_K, map_item_score, key=map_item_score.get)
     hr = getHitRatio(ranklist, gtItem)
     ndcg = getNDCG(ranklist, gtItem)
-    return (hr, ndcg)
+    return (hr, ndcg, map_item_score[gtItem][0])
 
 def getHitRatio(ranklist, gtItem):
     for item in ranklist:

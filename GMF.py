@@ -117,10 +117,10 @@ def user_item_embeddings():
   item_embs = item_emb_model.predict([all_items])
   item_embs = np.squeeze(item_embs)
   import pickle
-  with open('Embeddings/GMF_item_embs.pkl', 'w') as file:
+  with open('Embeddings/GMF_item_embs.pkl', 'wb') as file:
     pickle.dump(item_embs, file)
 
-  with open('Embeddings/GMF_user_embs.pkl', 'w') as file2:
+  with open('Embeddings/GMF_user_embs.pkl', 'wb') as file2:
     user_embs = user_emb_model.predict([all_users])
     user_embs = np.squeeze(user_embs)
     pickle.dump(user_embs, file2)
@@ -160,13 +160,15 @@ if __name__ == '__main__':
     else:
       model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')
     # print(model.summary())
-    model.load_weights("Pretrain/ml-1m_GMF_8_1547226852.h5")
+    model.load_weights("Pretrain/ml-1m_GMF_8_1551168888.h5") # normal sigmoid gmf all ratings 1 score
+    # model.load_weights("Pretrain/ml-1m_GMF_8_1551190338.h5") # for tanh ratings <2 get -1 score
     # user_item_embeddings()
     dataset = Dataset(args.path + args.dataset)
     testRatings, testNegatives = dataset.testRatings, dataset.testNegatives
     (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK,
                                    evaluation_threads)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
+    print('Init: HR = %.4f, NDCG = %.4f' % (hr, ndcg))
     exit(0)
 
   # Loading data

@@ -167,8 +167,14 @@ if __name__ == '__main__':
             model.compile(optimizer=SGD(lr=learning_rate),
                           loss='binary_crossentropy')
         # print(model.summary())
-        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1549627845.h5")
+        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1551192887.h5")
         user_item_embeddings()
+        dataset = Dataset(args.path + args.dataset)
+        testRatings, testNegatives = dataset.testRatings, dataset.testNegatives
+        (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK,
+                                       evaluation_threads)
+        hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
+        print('Loaded model: HR = %.4f, NDCG = %.4f' % (hr, ndcg))
         exit(0)
 
     # Loading data
