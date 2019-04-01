@@ -4,6 +4,15 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import codecs
+
+users_attr_to_index = {
+  "Gender": 1,
+  "Age": 2,
+  "Occupation": 3,
+  "Zip": 4
+}
+
 
 def getMovieIds(movie_types=None):
   if movie_types is None:
@@ -17,7 +26,6 @@ def getMovieIds(movie_types=None):
   inv_map = {v: k for k, v in movie_mapping_dict.items()}
 
   movie_ids = []
-  import codecs
 
   with codecs.open("Data/movies.dat", "r", encoding='utf-16',
                    errors='ignore') as f:
@@ -83,6 +91,7 @@ def get_movielens_id_to_movie_map():
       line = f.readline()
   return movielens_id_to_movie
 
+
 def get_ncf_id_to_movie_map():
   #   Mapping is from NCF ids to actual movielens ids
   with open('Data/movie_mapping.json') as f:
@@ -94,3 +103,53 @@ def get_ncf_id_to_movie_map():
     ncf_id = int(ncf_id)
     ncf_id_to_movie[ncf_id] = ml_id_to_movie[ml_id]
   return ncf_id_to_movie
+
+
+def get_id_to_user_map():
+  id_to_user_map = dict()
+  with codecs.open("Data/users.dat", "r", encoding='utf-8',
+                   errors='ignore') as f:
+    line = f.readline()
+    while line:
+      arr = line.split("::")
+      id = int(arr[0]) - 1
+      id_to_user_map[id] = arr
+      line = f.readline()
+  return id_to_user_map
+
+
+def attr_cond_satisfied(attr, arr, cond):
+  val = arr[users_attr_to_index[attr]]
+  if attr == "Age":
+    return cond[0] <= int(val) <= cond[1]
+  return cond == val
+
+# Example types = {
+#                 "Age":[18,25],
+#                 "Gender": "M
+#                  }
+def get_users(types=None):
+  if types is None:
+    types = dict()
+  users = []
+  with codecs.open("Data/users.dat", "r", encoding='utf-8',
+                   errors='ignore') as f:
+    line = f.readline()
+    while line:
+      add_to_list = True
+      arr = line.split("::")
+      for attr, cond in types.items():
+        if not attr_cond_satisfied(attr, arr, cond):
+          add_to_list = False
+          break
+
+      if add_to_list:
+        users.append(int(arr[0]) - 1)
+      line = f.readline()
+  return users
+
+
+def load_emb(algo='GMF', type='item'):
+  with open('Embeddings/%s_%s_embs.pkl' % (algo, type), 'rb') as pkl_file:
+    embs = pickle.load(pkl_file)
+    return embs
