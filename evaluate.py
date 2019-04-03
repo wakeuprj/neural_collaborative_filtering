@@ -19,7 +19,7 @@ _model = None
 _testRatings = None
 _testNegatives = None
 _K = None
-
+conf_vs_acc_map = None
 def evaluate_model(model, testRatings, testNegatives, K, num_thread):
     """
     Evaluate the performance (Hit_Ratio, NDCG) of top-K recommendation
@@ -29,11 +29,13 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
     global _testRatings
     global _testNegatives
     global _K
+    global conf_vs_acc_map
     _model = model
     _testRatings = testRatings
     _testNegatives = testNegatives
     _K = K
-        
+    conf_vs_acc_map = {(round(k,1)):[0,0] for k in np.arange(0,1,0.1)}
+
     hits, ndcgs = [],[]
     if(num_thread > 1): # Multi-thread
         pool = multiprocessing.Pool(processes=num_thread)
@@ -44,19 +46,25 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
         ndcgs = [r[1] for r in res]
         return (hits, ndcgs)
     # Single thread
-    hits_map = {(round(k,1)):[] for k in np.arange(0,1,0.1)}
     for idx in range(len(_testRatings)):
-        (hr, ndcg, score) = eval_one_rating(idx)
-        hits_map[score // 0.1 / 10].append(hr)
+        (hr, ndcg) = eval_one_rating(idx)
         hits.append(hr)
         ndcgs.append(ndcg)
 
+    conf_map = {k: v[1] / (v[1] + v[0] + 0.00001)
+                for k, v in conf_vs_acc_map.items()}
+
+    print(conf_map)
     import matplotlib.pyplot as plt
-    hr_vs_conf_map = {k:np.count_nonzero(v)/len(v) for k,v in hits_map.items()}
-    plt.plot(hr_vs_conf_map.items())
-    # plt.hist(scores, bins=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    # hr_vs_conf_map = {k:np.count_nonzero(v)/len(v) for k,v in hits_map.items()}
+    plt.bar(range(len(conf_map.keys())), list(conf_map.values()), tick_label=list(conf_map.keys()))
+    plt.bar(range(len(conf_map.keys())), list(map(lambda x: x + 0.05, list(conf_map.keys()))),
+            tick_label=list(conf_map.keys()), color=(0,0,0,0), edgecolor='g')
+    # # plt.hist(scores, bins=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    plt.xlabel('Confidence')
+    plt.ylabel('Accuracy')
     plt.show()
-    exit(0)
+    # exit(0)
     return (hits, ndcgs)
 
 def eval_one_rating(idx):
@@ -79,14 +87,23 @@ def eval_one_rating(idx):
 
     for i in range(len(items)):
         item = items[i]
-        map_item_score[item] = predictions[i]
+        map_item_score[item] = predictions[i][0]
     items.pop()
 
     # Evaluate top rank list
     ranklist = heapq.nlargest(_K, map_item_score, key=map_item_score.get)
     hr = getHitRatio(ranklist, gtItem)
     ndcg = getNDCG(ranklist, gtItem)
-    return (hr, ndcg, map_item_score[gtItem][0])
+
+    expected_argmax = [1] * 99
+    expected_argmax.append(0)
+    for i in range(0,len(predictions)):
+      confidence = np.max(predictions[i])
+      if np.argmax(predictions[i]) == expected_argmax[i]:
+        conf_vs_acc_map[confidence // 0.1 / 10][1] += 1
+      else:
+        conf_vs_acc_map[confidence // 0.1 / 10][0] += 1
+    return (hr, ndcg)
 
 def getHitRatio(ranklist, gtItem):
     for item in ranklist:

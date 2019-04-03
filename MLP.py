@@ -80,7 +80,7 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
         vector = layer(vector)
 
     # Final prediction layer
-    prediction = Dense(1, activation='sigmoid', init='lecun_uniform', name = 'prediction')(vector)
+    prediction = Dense(2, activation='softmax', init='lecun_uniform', name = 'prediction')(vector)
 
     model = Model(input=[user_input, item_input],
                   output=prediction)
@@ -94,7 +94,7 @@ def get_train_instances(train, num_negatives):
         # positive instance
         user_input.append(u)
         item_input.append(i)
-        labels.append(1)
+        labels.append([1,0])
         # negative instances
         for t in range(num_negatives):
             j = np.random.randint(num_items)
@@ -102,7 +102,7 @@ def get_train_instances(train, num_negatives):
                 j = np.random.randint(num_items)
             user_input.append(u)
             item_input.append(j)
-            labels.append(0)
+            labels.append([0,1])
     return user_input, item_input, labels
 
 def user_item_embeddings():
@@ -167,8 +167,9 @@ if __name__ == '__main__':
             model.compile(optimizer=SGD(lr=learning_rate),
                           loss='binary_crossentropy')
         # print(model.summary())
-        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1551192887.h5")
-        user_item_embeddings()
+        # model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1551192887.h5")
+        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_softmax_categorical_loss.h5")
+        # user_item_embeddings()
         dataset = Dataset(args.path + args.dataset)
         testRatings, testNegatives = dataset.testRatings, dataset.testNegatives
         (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK,
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     elif learner.lower() == "rmsprop":
         model.compile(optimizer=RMSprop(lr=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "adam":
-        model.compile(optimizer=Adam(lr=learning_rate), loss='binary_crossentropy')
+        model.compile(optimizer=Adam(lr=learning_rate), loss='categorical_crossentropy')
     else:
         model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')
 

@@ -73,7 +73,9 @@ def get_model(num_users, num_items, latent_dim, regs=[0, 0]):
 
   # Final prediction layer
   # prediction = Lambda(lambda x: K.sigmoid(K.sum(x)), output_shape=(1,))(predict_vector)
-  prediction = Dense(1, activation='sigmoid', init='lecun_uniform',
+  # prediction = Dense(1, activation='sigmoid', init='lecun_uniform',
+  #                    name='prediction')(predict_vector)
+  prediction = Dense(2, activation='softmax', init='lecun_uniform',
                      name='prediction')(predict_vector)
 
   model = Model(input=[user_input, item_input],
@@ -88,7 +90,16 @@ def get_train_instances(train, num_negatives):
     # positive instance
     user_input.append(u)
     item_input.append(i)
-    labels.append(1)
+    # labels.append(1)
+
+    if (train[u,i]) == 1:
+      labels.append([1, 0])
+
+    # if (train[u,i]) == -1:
+    #   labels.append([0, 0, 1])
+    # elif train[u,i] == 1:
+    #   labels.append([1, 0, 0])
+
     # negative instances
     # For each positive user input take num_negatives negative inputs for that user
     for t in range(num_negatives):
@@ -98,7 +109,9 @@ def get_train_instances(train, num_negatives):
         j = np.random.randint(num_items)
       user_input.append(u)
       item_input.append(j)
-      labels.append(0)
+      # labels.append(0)
+      labels.append([0, 1])
+      # labels.append([0,1,0])
   return user_input, item_input, labels
 
 def user_item_embeddings():
@@ -155,12 +168,15 @@ if __name__ == '__main__':
       model.compile(optimizer=RMSprop(lr=learning_rate),
                     loss='binary_crossentropy')
     elif learner.lower() == "adam":
+      # model.compile(optimizer=Adam(lr=learning_rate),
+      #               loss='binary_crossentropy')
       model.compile(optimizer=Adam(lr=learning_rate),
-                    loss='binary_crossentropy')
+                    loss='categorical_crossentropy')
     else:
       model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')
     # print(model.summary())
-    model.load_weights("Pretrain/ml-1m_GMF_8_1551168888.h5") # normal sigmoid gmf all ratings 1 score
+    # model.load_weights("Pretrain/ml-1m_GMF_8_1551168888.h5") # normal sigmoid gmf all ratings 1 score
+    model.load_weights("Pretrain/ml-1m_GMF_8_softmax_categorical_loss.h5")
     # model.load_weights("Pretrain/ml-1m_GMF_8_1551190338.h5") # for tanh ratings <2 get -1 score
     # user_item_embeddings()
     dataset = Dataset(args.path + args.dataset)
@@ -188,7 +204,7 @@ if __name__ == '__main__':
     model.compile(optimizer=RMSprop(lr=learning_rate),
                   loss='binary_crossentropy')
   elif learner.lower() == "adam":
-    model.compile(optimizer=Adam(lr=learning_rate), loss='binary_crossentropy')
+    model.compile(optimizer=Adam(lr=learning_rate), loss='categorical_crossentropy')
   else:
     model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')
   # print(model.summary())
