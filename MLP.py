@@ -162,7 +162,7 @@ if __name__ == '__main__':
                           loss='binary_crossentropy')
         elif learner.lower() == "adam":
             model.compile(optimizer=Adam(lr=learning_rate),
-                          loss='binary_crossentropy')
+                          loss='categorical_crossentropy')
         else:
             model.compile(optimizer=SGD(lr=learning_rate),
                           loss='binary_crossentropy')
