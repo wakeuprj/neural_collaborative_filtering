@@ -33,7 +33,7 @@ class Dataset(object):
                 # if int(arr[2]) <= 2:
                 #     continue
                 user, item = int(arr[0]), int(arr[1])
-                ratingList.append([user, item])
+                ratingList.append([user, item, arr[2]])
                 line = f.readline()
         return ratingList
     
@@ -72,7 +72,7 @@ class Dataset(object):
             while line != None and line != "":
                 arr = line.split("\t")
                 user, item, rating = int(arr[0]), int(arr[1]), float(arr[2])
-                if (rating > 0):
+                if (rating > 2):
                     mat[user, item] = 1.0
                 else:
                     mat[user, item] = -1.0

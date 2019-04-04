@@ -80,7 +80,7 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
         vector = layer(vector)
 
     # Final prediction layer
-    prediction = Dense(2, activation='softmax', init='lecun_uniform', name = 'prediction')(vector)
+    prediction = Dense(3, activation='softmax', init='lecun_uniform', name = 'prediction')(vector)
 
     model = Model(input=[user_input, item_input],
                   output=prediction)
@@ -94,7 +94,11 @@ def get_train_instances(train, num_negatives):
         # positive instance
         user_input.append(u)
         item_input.append(i)
-        labels.append([1,0])
+        # labels.append([1,0])
+        if (train[u,i]) == -1:
+          labels.append([0, 0, 1])
+        elif train[u,i] == 1:
+          labels.append([1, 0, 0])
         # negative instances
         for t in range(num_negatives):
             j = np.random.randint(num_items)
@@ -102,7 +106,8 @@ def get_train_instances(train, num_negatives):
                 j = np.random.randint(num_items)
             user_input.append(u)
             item_input.append(j)
-            labels.append([0,1])
+            # labels.append([0,1])
+            labels.append([0,1,0])
     return user_input, item_input, labels
 
 def user_item_embeddings():
@@ -168,7 +173,8 @@ if __name__ == '__main__':
                           loss='binary_crossentropy')
         # print(model.summary())
         # model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_1551192887.h5")
-        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_softmax_categorical_loss.h5")
+        # model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_softmax_categorical_loss.h5")
+        model.load_weights("Pretrain/ml-1m_MLP_[64,32,16,8]_softmax_negative_15epchs.h5")
         # user_item_embeddings()
         dataset = Dataset(args.path + args.dataset)
         testRatings, testNegatives = dataset.testRatings, dataset.testNegatives

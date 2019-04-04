@@ -72,6 +72,10 @@ def eval_one_rating(idx):
     items = _testNegatives[idx]
     u = rating[0]
     gtItem = rating[1]
+    if int(rating[2]) <= 2:
+        gt_item_expected_argmax = 2
+    else:
+        gt_item_expected_argmax = 0
     items.append(gtItem)
     # Get prediction scores
     map_item_score = {}
@@ -96,9 +100,13 @@ def eval_one_rating(idx):
     ndcg = getNDCG(ranklist, gtItem)
 
     expected_argmax = [1] * 99
-    expected_argmax.append(0)
+    expected_argmax.append(gt_item_expected_argmax)
     for i in range(0,len(predictions)):
       confidence = np.max(predictions[i])
+      # if np.argmax(predictions[i]) == 1:
+      #     continue
+      # if expected_argmax[i] >= 1:
+      #     continue
       if np.argmax(predictions[i]) == expected_argmax[i]:
         conf_vs_acc_map[confidence // 0.1 / 10][1] += 1
       else:
